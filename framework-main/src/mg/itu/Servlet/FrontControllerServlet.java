@@ -12,6 +12,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import mg.itu.utils.JsonFormatter;
 import mg.itu.utils.MethodInfo;
 import mg.itu.utils.ModelAndView;
 import mg.itu.utils.UrlMethod;
@@ -102,9 +103,23 @@ public class FrontControllerServlet extends HttpServlet {
 
                 // SI result est String
                 if (result != null && result instanceof String) {
+                    if (info.isJson()) {
+                        resp.setContentType("application/json;charset=UTF-8");
+                        PrintWriter out = resp.getWriter();
+                        out.println(result.toString());
+                        return;
+                    }
+
                     String viewPath = AppListener.viewPrefix + result.toString() + AppListener.viewSuffix;
                     RequestDispatcher dispatcher = req.getRequestDispatcher(viewPath);
                     dispatcher.forward(req, resp);
+                    return;
+                }
+
+                if (info.isJson()) {
+                    resp.setContentType("application/json;charset=UTF-8");
+                    PrintWriter out = resp.getWriter();
+                    out.println(JsonFormatter.toJson(result));
                     return;
                 }
 

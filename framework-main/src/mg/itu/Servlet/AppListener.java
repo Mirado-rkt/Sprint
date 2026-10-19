@@ -10,6 +10,7 @@ import jakarta.servlet.ServletContextEvent;
 import jakarta.servlet.ServletContextListener;
 import jakarta.servlet.annotation.WebListener;
 import mg.itu.annotation.Controller.Controller;
+import mg.itu.annotation.Json.Json;
 import mg.itu.annotation.Url.UrlMapping;
 import mg.itu.utils.MethodInfo;
 import mg.itu.utils.PackageScanner;
@@ -42,7 +43,7 @@ public class AppListener implements ServletContextListener {
 
         String packageToScan = context.getInitParameter("controllerPackage");
         if (packageToScan == null || packageToScan.isEmpty()) {
-            packageToScan = "controlleur";
+            packageToScan = "com.framework.corps";
         }
 
         List<String> allClasses = PackageScanner.getClasses(packageToScan);
@@ -75,11 +76,12 @@ public class AppListener implements ServletContextListener {
                                                     className + "." + method.getName());
                                 }
 
-                                MethodInfo info = new MethodInfo(className, method.getName());
+                                boolean json = method.isAnnotationPresent(Json.class);
+                                MethodInfo info = new MethodInfo(className, method.getName(), json);
                                 urlMethodMappings.put(key, info);
 
                                 System.out.println("[Framework] Mapping: " + httpMethod + " " + url + " -> " + className
-                                        + "." + method.getName());
+                                    + "." + method.getName() + (json ? " [JSON]" : ""));
                             }
                         }
                     }

@@ -17,7 +17,19 @@
     <!-- Test du FrontController -->
     <servlet>
         <servlet-name>FrontController</servlet-name>
-        <servlet-class>framework.FrontControllerServlet</servlet-class>
+        <servlet-class>mg.itu.Servlet.FrontControllerServlet</servlet-class>
+        <init-param>
+            <param-name>controllerPackage</param-name>
+            <param-value>com.framework.corps</param-value>
+        </init-param>
+        <init-param>
+            <param-name>viewPrefix</param-name>
+            <param-value>/WEB-INF/views/</param-value>
+        </init-param>
+        <init-param>
+            <param-name>viewSuffix</param-name>
+            <param-value>.jsp</param-value>
+        </init-param>
     </servlet>
     <servlet-mapping>
         <servlet-name>FrontController</servlet-name>
