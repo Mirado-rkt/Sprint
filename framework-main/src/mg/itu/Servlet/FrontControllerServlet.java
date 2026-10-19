@@ -1,159 +1,138 @@
 package mg.itu.Servlet;
 
 import java.io.IOException;
-import java.io.PrintWriter;
 import java.lang.reflect.Method;
-import java.util.HashSet;
+import java.lang.reflect.Parameter;
 import java.util.Map;
-import java.util.Set;
 
-import jakarta.servlet.RequestDispatcher;
-import jakarta.servlet.ServletException;
-import jakarta.servlet.http.HttpServlet;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
+import javax.servlet.RequestDispatcher;
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServlet;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.Part;
 import mg.itu.utils.JsonFormatter;
+import mg.itu.utils.MapFile;
 import mg.itu.utils.MethodInfo;
 import mg.itu.utils.ModelAndView;
 import mg.itu.utils.UrlMethod;
 
+/** Single entry point for controller routes. */
 public class FrontControllerServlet extends HttpServlet {
+    @Override protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException { process(req, resp); }
+    @Override protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException { process(req, resp); }
+    @Override protected void doPut(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException { process(req, resp); }
+    @Override protected void doDelete(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException { process(req, resp); }
 
-    private static Set<String> uris = new HashSet<>();
+    private void process(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        RuntimeException initError = (RuntimeException) getServletContext().getAttribute(AppListener.INIT_ERROR_ATTRIBUTE);
+        if (initError == null) initError = AppListener.initError;
+        if (initError != null) throw new ServletException("MVC route initialization failed", initError);
 
-    @Override
-    public void init() throws ServletException {
-        System.out.println("[Framework] FrontControllerServlet initialise");
-    }
-
-    @Override
-    protected void doGet(HttpServletRequest req, HttpServletResponse resp)
-            throws ServletException, IOException {
-        processRequest(req, resp);
-    }
-
-    @Override
-    protected void doPost(HttpServletRequest req, HttpServletResponse resp)
-            throws ServletException, IOException {
-        processRequest(req, resp);
-    }
-
-    @Override
-    protected void doPut(HttpServletRequest req, HttpServletResponse resp)
-            throws ServletException, IOException {
-        processRequest(req, resp);
-    }
-
-    @Override
-    protected void doDelete(HttpServletRequest req, HttpServletResponse resp)
-            throws ServletException, IOException {
-        processRequest(req, resp);
-    }
-
-    protected void processRequest(HttpServletRequest req, HttpServletResponse resp)
-            throws ServletException, IOException {
-
-        if (AppListener.initError != null) {
-            throw new ServletException(AppListener.initError);
+        String path = request.getRequestURI().substring(request.getContextPath().length());
+        String verb = request.getMethod().toUpperCase();
+        Map<UrlMethod, MethodInfo> routes = AppListener.urlMethodMappings;
+        @SuppressWarnings("unchecked")
+        Map<UrlMethod, MethodInfo> configured = (Map<UrlMethod, MethodInfo>) getServletContext().getAttribute(AppListener.MAPPINGS_ATTRIBUTE);
+        if (configured != null) routes = configured;
+        MethodInfo info = routes.get(new UrlMethod(path, verb));
+        if (info == null) {
+            response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+            response.setContentType("text/html;charset=UTF-8");
+            response.getWriter().write("<!doctype html><html><head><meta charset=\"utf-8\"><title>404</title></head><body><h1>404 — route introuvable</h1><p>" + escape(verb + " " + path) + "</p><h2>Routes disponibles</h2><ul>");
+            for (Map.Entry<UrlMethod, MethodInfo> route : routes.entrySet()) {
+                response.getWriter().write("<li>" + escape(route.getKey().getMethod() + " " + route.getKey().getUrl()) + "</li>");
+            }
+            response.getWriter().write("</ul></body></html>");
+            return;
         }
 
-        String uri = req.getRequestURI();
-        String contextPath = req.getContextPath();
-        String chemin = uri.substring(contextPath.length());
-        String httpMethod = req.getMethod();
-
-        uris.add(chemin);
-
-        UrlMethod key = new UrlMethod(chemin, httpMethod);
-
-        if (AppListener.urlMethodMappings.containsKey(key)) {
-            MethodInfo info = AppListener.urlMethodMappings.get(key);
-            String simpleName = info.className.substring(info.className.lastIndexOf('.') + 1);
-
-            try {
-                Class<?> clazz = Class.forName(info.className);
-                Object instance = clazz.getDeclaredConstructor().newInstance();
-
-                Object result = null;
-
-                try {
-                    Method method = clazz.getMethod(info.methodName, HttpServletRequest.class,
-                            HttpServletResponse.class);
-                    result = method.invoke(instance, req, resp);
-                } catch (NoSuchMethodException e) {
-                    Method method = clazz.getMethod(info.methodName);
-                    result = method.invoke(instance);
-                }
-
-                // SI result est ModelAndView
-                if (result != null && result instanceof ModelAndView) {
-                    ModelAndView mv = (ModelAndView) result;
-
-                    if (mv.getData() != null) {
-                        for (Map.Entry<String, Object> entry : mv.getData().entrySet()) {
-                            req.setAttribute(entry.getKey(), entry.getValue());
-                        }
-                    }
-
-                    String viewPath = AppListener.viewPrefix + mv.getViewName() + AppListener.viewSuffix;
-                    RequestDispatcher dispatcher = req.getRequestDispatcher(viewPath);
-                    dispatcher.forward(req, resp);
-                    return;
-                }
-
-                // SI result est String
-                if (result != null && result instanceof String) {
-                    if (info.isJson()) {
-                        resp.setContentType("application/json;charset=UTF-8");
-                        PrintWriter out = resp.getWriter();
-                        out.println(result.toString());
-                        return;
-                    }
-
-                    String viewPath = AppListener.viewPrefix + result.toString() + AppListener.viewSuffix;
-                    RequestDispatcher dispatcher = req.getRequestDispatcher(viewPath);
-                    dispatcher.forward(req, resp);
-                    return;
-                }
-
-                if (info.isJson()) {
-                    resp.setContentType("application/json;charset=UTF-8");
-                    PrintWriter out = resp.getWriter();
-                    out.println(JsonFormatter.toJson(result));
-                    return;
-                }
-
-                // SINON affichage par défaut
-                resp.setContentType("text/html");
-                PrintWriter out = resp.getWriter();
-                out.println("<html><body>");
-                out.println("<h1>URL: " + chemin + "</h1>");
-                out.println("<p>Methode HTTP: " + httpMethod + "</p>");
-                out.println("<p>Classe: " + simpleName + "</p>");
-                out.println("<p>Methode: " + info.methodName + "</p>");
-                if (result != null) {
-                    out.println("<p>Retour: " + result.toString() + "</p>");
-                }
-                out.println("</body></html>");
-
-            } catch (Exception e) {
-                throw new ServletException(e);
-            }
-        } else {
-            resp.setContentType("text/html");
-            PrintWriter out = resp.getWriter();
-            out.println("<html><body>");
-            out.println("<h1>404 - Aucun mapping pour: " + httpMethod + " " + chemin + "</h1>");
-            out.println("<h2>Mappings disponibles</h2><ul>");
-            for (Map.Entry<UrlMethod, MethodInfo> entry : AppListener.urlMethodMappings.entrySet()) {
-                String simpleName = entry.getValue().className
-                        .substring(entry.getValue().className.lastIndexOf('.') + 1);
-                out.println(
-                        "<li>" + entry.getKey().getMethod() + " " + entry.getKey().getUrl() + " -> " +
-                                simpleName + "." + entry.getValue().methodName + "</li>");
-            }
-            out.println("</ul>");
-            out.println("</body></html>");
+        try {
+            Class<?> controllerClass = Class.forName(info.className);
+            Object controller = controllerClass.getDeclaredConstructor().newInstance();
+            Method handler = findHandler(controllerClass, info.methodName);
+            handler.setAccessible(true);
+            Object result = handler.invoke(controller, resolveArguments(handler, request, response));
+            render(result, info, request, response);
+        } catch (Exception exception) {
+            Throwable cause = exception instanceof java.lang.reflect.InvocationTargetException && exception.getCause() != null
+                    ? exception.getCause() : exception;
+            throw new ServletException("Error handling " + verb + " " + path, cause);
         }
+    }
+
+    private Method findHandler(Class<?> controllerClass, String name) throws NoSuchMethodException {
+        for (Method method : controllerClass.getDeclaredMethods()) if (method.getName().equals(name)) return method;
+        throw new NoSuchMethodException(controllerClass.getName() + "." + name);
+    }
+
+    private Object[] resolveArguments(Method method, HttpServletRequest request, HttpServletResponse response) throws Exception {
+        Parameter[] parameters = method.getParameters();
+        Object[] values = new Object[parameters.length];
+        for (int i = 0; i < parameters.length; i++) {
+            Class<?> type = parameters[i].getType();
+            String name = parameters[i].getName();
+            if (type == HttpServletRequest.class) values[i] = request;
+            else if (type == HttpServletResponse.class) values[i] = response;
+            else if (type == Part.class) values[i] = request.getPart(name);
+            else if (type == MapFile.class) {
+                Part part = request.getPart(name);
+                values[i] = part == null ? null : MapFile.from(part);
+            } else {
+                String raw = request.getParameter(name);
+                if (raw == null && type.isPrimitive()) throw new IllegalArgumentException("Missing required parameter: " + name);
+                values[i] = convert(raw, type);
+            }
+        }
+        return values;
+    }
+
+    private Object convert(String value, Class<?> type) {
+        if (value == null) return null;
+        if (type == String.class) return value;
+        if (type == int.class || type == Integer.class) return Integer.valueOf(value);
+        if (type == long.class || type == Long.class) return Long.valueOf(value);
+        if (type == double.class || type == Double.class) return Double.valueOf(value);
+        if (type == float.class || type == Float.class) return Float.valueOf(value);
+        if (type == boolean.class || type == Boolean.class) return Boolean.valueOf(value);
+        if (type == short.class || type == Short.class) return Short.valueOf(value);
+        if (type == byte.class || type == Byte.class) return Byte.valueOf(value);
+        if (type == char.class || type == Character.class) {
+            if (value.length() != 1) throw new IllegalArgumentException("Expected one character");
+            return value.charAt(0);
+        }
+        throw new IllegalArgumentException("Unsupported controller parameter type: " + type.getName());
+    }
+
+    private void render(Object result, MethodInfo info, HttpServletRequest request, HttpServletResponse response) throws Exception {
+        if (result instanceof ModelAndView) {
+            ModelAndView view = (ModelAndView) result;
+            if (view.getData() != null) view.getData().forEach(request::setAttribute);
+            String prefix = (String) getServletContext().getAttribute(AppListener.VIEW_PREFIX_ATTRIBUTE);
+            String suffix = (String) getServletContext().getAttribute(AppListener.VIEW_SUFFIX_ATTRIBUTE);
+            if (prefix == null) prefix = AppListener.viewPrefix;
+            if (suffix == null) suffix = AppListener.viewSuffix;
+            RequestDispatcher dispatcher = request.getRequestDispatcher(prefix + view.getViewName() + suffix);
+            if (dispatcher == null) throw new ServletException("View not found: " + view.getViewName());
+            dispatcher.forward(request, response);
+        } else if (result instanceof String && !info.isJson()) {
+            String string = (String) result;
+            String prefix = AppListener.viewPrefix;
+            String suffix = AppListener.viewSuffix;
+            RequestDispatcher dispatcher = request.getRequestDispatcher(prefix + string + suffix);
+            dispatcher.forward(request, response);
+        } else if (info.isJson()) {
+            response.setContentType("application/json;charset=UTF-8");
+            response.getWriter().write(result instanceof String ? (String) result : JsonFormatter.toJson(result));
+        } else if (result != null) {
+            response.setContentType("text/plain;charset=UTF-8");
+            response.getWriter().write(result.toString());
+        } else if (!response.isCommitted()) {
+            response.setStatus(HttpServletResponse.SC_NO_CONTENT);
+        }
+    }
+
+    private String escape(String input) {
+        return input.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;").replace("'", "&#39;");
     }
 }

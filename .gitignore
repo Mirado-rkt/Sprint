@@ -1,0 +1,17 @@
+# Maven build output
+**/target/
+
+# Java compiled output and local framework archives
+**/bin/
+**/*.class
+/framework-main/framework.jar
+
+# Local uploads and server logs
+/framework-main/uploads/
+*.log
+
+# Common local files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
