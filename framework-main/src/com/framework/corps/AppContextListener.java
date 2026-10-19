@@ -1,9 +1,8 @@
 package com.framework.corps;
 
-import jakarta.servlet.ServletContext;
-import jakarta.servlet.ServletContextEvent;
-import jakarta.servlet.ServletContextListener;
-import jakarta.servlet.annotation.WebListener;
+import javax.servlet.ServletContext;
+import javax.servlet.ServletContextEvent;
+import javax.servlet.ServletContextListener;
 import java.io.File;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
@@ -15,7 +14,6 @@ import mg.itu.framework.exception.DuplicateUrlException;
 import mg.itu.framework.mapping.Methode;
 import mg.itu.framework.mapping.UrlMethod;
     
-@WebListener
 public class AppContextListener implements ServletContextListener {
     public List<String> controllers = new ArrayList<>();
     public Map<UrlMethod, Methode> mappings = new HashMap<>();

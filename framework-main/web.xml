@@ -1,38 +1,36 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<web-app xmlns="https://jakarta.ee/xml/ns/jakartaee"
+<web-app xmlns="http://xmlns.jcp.org/xml/ns/javaee"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="https://jakarta.ee/xml/ns/jakartaee https://jakarta.ee/xml/ns/jakartaee/web-app_6_0.xsd"
-         version="6.0">
-
-    <!-- Test du Filtre de capture -->
-    <filter>
-        <filter-name>LinkCaptureFilter</filter-name>
-        <filter-class>framework.LinkCaptureFilter</filter-class>
-    </filter>
-    <filter-mapping>
-        <filter-name>LinkCaptureFilter</filter-name>
-        <url-pattern>/*</url-pattern>
-    </filter-mapping>
-
-    <!-- Test du FrontController -->
+         xsi:schemaLocation="http://xmlns.jcp.org/xml/ns/javaee http://xmlns.jcp.org/xml/ns/javaee/web-app_4_0.xsd"
+         version="4.0">
+    <display-name>Sprint Mini MVC</display-name>
+    <context-param>
+        <param-name>controllerPackage</param-name>
+        <param-value>com.framework.corps</param-value>
+    </context-param>
+    <context-param>
+        <param-name>viewPrefix</param-name>
+        <param-value>/WEB-INF/views/</param-value>
+    </context-param>
+    <context-param>
+        <param-name>viewSuffix</param-name>
+        <param-value>.jsp</param-value>
+    </context-param>
+    <listener>
+        <listener-class>mg.itu.Servlet.AppListener</listener-class>
+    </listener>
     <servlet>
         <servlet-name>FrontController</servlet-name>
         <servlet-class>mg.itu.Servlet.FrontControllerServlet</servlet-class>
-        <init-param>
-            <param-name>controllerPackage</param-name>
-            <param-value>com.framework.corps</param-value>
-        </init-param>
-        <init-param>
-            <param-name>viewPrefix</param-name>
-            <param-value>/WEB-INF/views/</param-value>
-        </init-param>
-        <init-param>
-            <param-name>viewSuffix</param-name>
-            <param-value>.jsp</param-value>
-        </init-param>
+        <multipart-config>
+            <max-file-size>10485760</max-file-size>
+            <max-request-size>20971520</max-request-size>
+            <file-size-threshold>0</file-size-threshold>
+        </multipart-config>
     </servlet>
     <servlet-mapping>
         <servlet-name>FrontController</servlet-name>
         <url-pattern>/test/*</url-pattern>
     </servlet-mapping>
+    <welcome-file-list><welcome-file>index.jsp</welcome-file></welcome-file-list>
 </web-app>
